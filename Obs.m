@@ -1,4 +1,4 @@
-function y = Obs(k,x,M,noise)
+function y = Obs(x,M,noise)
 %% M: observation matrix
-    y = M*x(:,k) + noise;
+    y = M*x + noise;
 end

@@ -1,4 +1,4 @@
-function [xh,pf] = PF(k,Sys,yk,u,pf,resampling_strategy,opt)
+function [xh,pf] = PF(k,yk,u,pf,resampling_strategy,opt)
 %% Generic Particle Filter
 %                           Modified: Huan Do
 % Inputs:
@@ -28,7 +28,8 @@ wkm1 = pf.w(:, k-1);                     % weights of last iteration
 
 if k == 2
     for i = 1:Ns                          % simulate initial particles
-        temp = mvnrnd(zeros(3,1),opt.Q,1);    % generate multi-variate normal dist noise
+        %temp = mvnrnd(zeros(3,1),opt.Q,1);    % generate multi-variate normal dist noise
+        temp = mvnrnd(opt.x0,opt.Q,1);    % generate multi-variate normal dist noise
         pf.particles(:,i,1) = temp'; % at time k=1
     end
     wkm1 = repmat(1/Ns, Ns, 1);           % all particles have the same weight
@@ -40,8 +41,8 @@ wk   = zeros(size(wkm1));     % = zeros(Ns,1);
 
 for i=1:Ns
     noise_sys = mvnrnd(zeros(nx,1),opt.Q,1);
-    xk(:,i) = Sys(k,xkm1,u,noise_sys,opt);
-    wk(i) = wkm1(i)*p_y_given_x(k, yk, xk(:,i));
+    xk(:,i) = Sys(k,xkm1(:,i),u,noise_sys,opt);
+    wk(i) = wkm1(i)*p_y_given_x(yk, xk(:,i),opt);
 end
 % --- Normalize weight vector
 wk = wk./sum(wk);
@@ -50,6 +51,7 @@ Neff = 1/sum(wk.^2);
 
 %% Resampling
 resample_percentaje = 0.50;
+%resample_percentaje = 0.2;
 Nt = resample_percentaje*Ns;
 if Neff < Nt
     disp('Resampling ...')
@@ -69,10 +71,10 @@ pf.particles(:,:,k) = xk;
 
 end
 
-function out = p_y_given_x(k,y,x,opt)
+function out = p_y_given_x(y,x,opt)
 ny = length(y);
-noise_obs = mvnrnd(zeros(ny,1),opt.R,1);
-out = mvnpdf(y - Obs(k,x,opt.M,noise_obs),[0 0],opt.R);
+noise_obs = (mvnrnd(zeros(ny,1),opt.R,1))';
+out = mvnpdf(y - Obs(x,opt.M,noise_obs),[0 ;0],opt.R);
 end
 
 function [xk, wk, idx] = resample(xk, wk, resampling_strategy)
