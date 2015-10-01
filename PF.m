@@ -1,6 +1,6 @@
 function [xh,pf] = PF(k,yk,u,pf,resampling_strategy,opt)
 %% Generic Particle Filter
-%                           Modified: Huan Do
+%                           Modified: Huan Do | dohuan@msu.edu
 % Inputs:
 % sys  = function handle to process equation
 % y    = observation vector at time k (column vector)
@@ -28,9 +28,17 @@ wkm1 = pf.w(:, k-1);                     % weights of last iteration
 
 if k == 2
     for i = 1:Ns                          % simulate initial particles
-        %temp = mvnrnd(zeros(3,1),opt.Q,1);    % generate multi-variate normal dist noise
+        
         temp = mvnrnd(opt.x0,opt.Q,1);    % generate multi-variate normal dist noise
+        %temp = mvnrnd(opt.x0,50*opt.Q,1);    % generate multi-variate normal dist noise
         pf.particles(:,i,1) = temp'; % at time k=1
+        
+        % --- initialize particles all over the field
+%         temp = mvnrnd(opt.x0,opt.Q,1);    % generate multi-variate normal dist noise
+%         temp = temp';
+%         xtemp = -100 + (100-(-100))*rand(1,1);
+%         ytemp = -60 + (120-(-60))*rand(1,1);
+%         pf.particles(:,i,1) = [xtemp;ytemp;temp(end,:)]; % at time k=1
     end
     wkm1 = repmat(1/Ns, Ns, 1);           % all particles have the same weight
 end
@@ -52,6 +60,8 @@ Neff = 1/sum(wk.^2);
 %% Resampling
 resample_percentaje = 0.50;
 %resample_percentaje = 0.2;
+%resample_percentaje = 0.05;
+
 Nt = resample_percentaje*Ns;
 if Neff < Nt
     disp('Resampling ...')

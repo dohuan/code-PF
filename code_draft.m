@@ -11,3 +11,18 @@ end
 plot(MC(min_ix).xh(1,2:end),MC(min_ix).xh(2,2:end));
 hold on
 plot(x_true(1,:),x_true(2,:),'r');
+
+
+figure(2)
+plot(pf.particles(1,:,1),pf.particles(2,:,1),'r.')
+hold on
+plot(pf.particles(1,:,2),pf.particles(2,:,2),'b.')
+
+
+
+% --------- Plot particles
+
+plot(xh(1,:),xh(2,:),'LineWidth',2);
+hold on
+plot(y(1,:),y(2,:),'ks');
+plot(x_true(1,:),x_true(2,:),'r','LineWidth',2);
