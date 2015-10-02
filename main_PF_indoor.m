@@ -6,29 +6,40 @@ set(0,'defaultFigureColor',[1 1 1])
 isMovie = 1;
 isMC = 0;
 nx = 3; % Number of states
-ny = 2; % Number of
+ny = 2; % Number of observation
 
-data = load('./data/est_input');
-u = data.u_l;
-v = data.phi;
+[~, ~, raw] = xlsread('.\data\FeaturesAndLocations.xls','Sheet1','A2:AL464');
+data = reshape([raw{:}],size(raw));
+dataSize = 400;
+scaleRatio = 1;
+input = downSampling([data(1:dataSize,1) data(1:dataSize,2)],scaleRatio);
+opt.time = downSampling(data(1:dataSize,5),scaleRatio);
+
+u = input(:,1);
+v = input(:,2);
+
+
 snap_shot = 50;
 
 % --- Load observation data
-data1 = load('./data/hpcc_run_0403(2)_OP_SURF');
-x_true = [(data1.y_test)'; data.heading_angle'];
-y = (data1.y_test_est)';
+data1 = load('./data/alien_0213.mat');
+[IC,IX] = sort(data1.index(data1.validateIndex+1:data1.testIndex));
+y_test = data1.y_test(IX',:);
+y = data1.y_guess_test(IX',:); y = y';
+heading_angle = LineAngleEstimator(y_test,1);
+x_true = [(y_test)'; heading_angle];
+
+%x_true = [(data1.y_test)'; data.heading_angle'];
+%y = (data1.y_test_est)';
+
 nt = size(x_true,2);
 %% Configuration
 % --- Model noise
-% location_model_noise = (3.5)^2; % \sigma_w1^2
-% heading_model_noise  = (2/180*pi)^2; %\sigma_w2^2
-
-location_model_noise = (4.0)^2; % \sigma_w1^2
+location_model_noise = (0.1)^2; % \sigma_w1^2
 heading_model_noise  = (0.1/180*pi)^2; %\sigma_w2^2
 
 % --- Observation (measurement) noise
-%location_measure_noise = (225)^2; % \sigma_e1^2
-location_measure_noise = (100)^2; % \sigma_e1^2
+location_measure_noise = (2)^2; % \sigma_e1^2
 
 opt.Q = [location_model_noise 0 0;...
     0 location_model_noise 0;...
@@ -37,8 +48,8 @@ opt.R = [location_measure_noise 0;
     0 location_measure_noise]; % measurement covariance
 opt.M = [1 0 0;
     0 1 0];
-opt.time = data.time;
-opt.wheelbase = 2.57048;
+%opt.time = data.time;
+%opt.wheelbase = 2.57048;
 
 
 %% Separate memory
@@ -56,13 +67,13 @@ pf.particles       = zeros(nx, pf.Ns, nt);% initialize particles
 if (isMC==0)
     for k = 2:nt
         fprintf('Iteration = %d/%d\n',k,nt);
-        [xh(:,k), pf] = PF(k,y(:,k),[u v],pf, 'systematic_resampling',opt,1);
+        [xh(:,k), pf] = PF(k,y(:,k),[u v],pf, 'systematic_resampling',opt,0);
         % --- filtered observation
         yh(:,k) = Obs(xh(:,k),opt.M, 0);
     end
     
     if (isMovie==1)
-        filename='./results/PF_evolution.avi';
+        filename='./results/PF_evolution_indoor.avi';
         vid = VideoWriter(filename);
         vid.Quality = 100;
         vid.FrameRate = 20;
@@ -95,8 +106,8 @@ if (isMC==0)
                     plot(pf.particles(1,j,i),pf.particles(2,j,i),'.',...
                         'Color',[col_ix(j) col_ix(j) col_ix(j)]);
                 end
-                ylim([-60 60]);
-                xlim([-50 100]);
+                %ylim([-60 60]);
+                %xlim([-50 100]);
                 colormap(flipud(gray));
                 colh = colorbar;
                 %set(colh,'YDir','reverse');
@@ -134,8 +145,8 @@ if (isMC==0)
     plot(y(1,:),y(2,:),'ks');
     plot(x_true(1,:),x_true(2,:),'r','LineWidth',2);
     
-    fprintf('RMSE of open-loop: %f\n',sqrt(mseCal(data.y_open_loop,...
-        data1.y_test)));
+    %fprintf('RMSE of open-loop: %f\n',sqrt(mseCal(data.y_open_loop,...
+    %    data1.y_test)));
     fprintf('RMSE of LASSO: %f\n',sqrt(mseCal(data1.y_test_est,...
         data1.y_test)));
     fprintf('RMSE of LASSO+PF: %f\n',sqrt(mseCal(data1.y_test,xh(1:2,:)')));
@@ -145,7 +156,7 @@ else
         fprintf('MC progress... %.2f%%\n',round(i/MC_run*100));
         pf_temp = pf;
         for k = 2:nt
-            [xh_temp(:,k), pf_temp] = PF(k,y(:,k),[u v],pf_temp, 'systematic_resampling',opt,1);
+            [xh_temp(:,k), pf_temp] = PF(k,y(:,k),[u v],pf_temp, 'systematic_resampling',opt,0);
             % --- filtered observation
             %yh(:,k) = Obs(xh(:,k),opt.M, 0);
         end

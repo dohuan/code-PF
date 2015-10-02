@@ -49,11 +49,8 @@ wk   = zeros(size(wkm1));     % = zeros(Ns,1);
 
 for i=1:Ns
     noise_sys = mvnrnd(zeros(nx,1),opt.Q,1);
-    if mode == 1
-        xk(:,i) = Sys(k,xkm1(:,i),u,noise_sys,opt);
-    else
-        xk(:,i) = Sys_indoor(k,xkm1(:,i),u,noise_sys,opt);
-    end
+    if mode == 0
+    xk(:,i) = Sys(k,xkm1(:,i),u,noise_sys,opt);
     wk(i) = wkm1(i)*p_y_given_x(yk, xk(:,i),opt);
 end
 % --- Normalize weight vector
@@ -62,9 +59,9 @@ wk = wk./sum(wk);
 Neff = 1/sum(wk.^2);
 
 %% Resampling
-%resample_percentaje = 0.50;
+resample_percentaje = 0.50;
 %resample_percentaje = 0.2;
-resample_percentaje = 0.02;
+%resample_percentaje = 0.05;
 
 Nt = resample_percentaje*Ns;
 if Neff < Nt
