@@ -15,6 +15,8 @@ scaleRatio = 1;
 input = downSampling([data(1:dataSize,1) data(1:dataSize,2)],scaleRatio);
 opt.time = downSampling(data(1:dataSize,5),scaleRatio);
 
+opt.mean_loc = mean(data(1:dataSize,3:4));
+opt.std_loc = std(data(1:dataSize,3:4));
 u = input(:,1);
 v = input(:,2);
 
@@ -35,11 +37,11 @@ x_true = [(y_test)'; heading_angle];
 nt = size(x_true,2);
 %% Configuration
 % --- Model noise
-location_model_noise = (0.1)^2; % \sigma_w1^2
+location_model_noise = (0.05)^2; % \sigma_w1^2
 heading_model_noise  = (0.1/180*pi)^2; %\sigma_w2^2
 
 % --- Observation (measurement) noise
-location_measure_noise = (2)^2; % \sigma_e1^2
+location_measure_noise = (1.5)^2; % \sigma_e1^2
 
 opt.Q = [location_model_noise 0 0;...
     0 location_model_noise 0;...
@@ -111,7 +113,9 @@ if (isMC==0)
                 colormap(flipud(gray));
                 colh = colorbar;
                 %set(colh,'YDir','reverse');
-                set(gca, 'CLim', [col_min, col_max]);
+                if (col_min<col_max)
+                    set(gca, 'CLim', [col_min, col_max]);
+                end
                 xlabel('(meters)','FontSize',14);
                 ylabel('(meters)','FontSize',14);
                 set(gca,'FontSize',16);
@@ -125,8 +129,8 @@ if (isMC==0)
             plot(pf.particles(1,:,i),pf.particles(2,:,i),'.',...
                     'Color',[0.5 0.5 0.5]);
             
-            ylim([-60 120]);
-            xlim([-100 100]);
+            %ylim([-60 120]);
+            %xlim([-100 100]);
             box on
             
             writeVideo(vid,getframe(gcf));
@@ -147,7 +151,7 @@ if (isMC==0)
     
     %fprintf('RMSE of open-loop: %f\n',sqrt(mseCal(data.y_open_loop,...
     %    data1.y_test)));
-    fprintf('RMSE of LASSO: %f\n',sqrt(mseCal(data1.y_test_est,...
+    fprintf('RMSE of LASSO: %f\n',sqrt(mseCal(data1.y_guess_test,...
         data1.y_test)));
     fprintf('RMSE of LASSO+PF: %f\n',sqrt(mseCal(data1.y_test,xh(1:2,:)')));
 else
