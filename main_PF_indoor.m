@@ -3,7 +3,7 @@ clear
 clc
 set(0,'defaultFigureColor',[1 1 1])
 %%
-isMovie = 1;
+isMovie = 0;
 isMC = 0;
 nx = 3; % Number of states
 ny = 2; % Number of observation
@@ -26,10 +26,25 @@ snap_shot = 50;
 % --- Load observation data
 data1 = load('./data/alien_0213.mat');
 [IC,IX] = sort(data1.index(data1.validateIndex+1:data1.testIndex));
-y_test = data1.y_test(IX',:);
-y = data1.y_guess_test(IX',:); y = y';
-heading_angle = LineAngleEstimator(y_test,1);
-x_true = [(y_test)'; heading_angle];
+obs_num = IC;
+obs_index = zeros(dataSize,1);
+obs_tmp = data1.y_guess_test(IX',:);
+y = zeros(2,dataSize);
+count = 1;
+for i=1:dataSize
+    if (isempty(find(obs_num==i, 1))==1)
+        y(:,i) = [NaN;NaN];
+        obs_index(i) = 0;
+    else
+        y(:,i) = obs_tmp(count,:);
+        count = count + 1;
+        obs_index(i) = 1;
+    end
+end
+
+location = data1.y;
+heading_angle = LineAngleEstimator(location,1);
+x_true = [(location)'; heading_angle];
 
 %x_true = [(data1.y_test)'; data.heading_angle'];
 %y = (data1.y_test_est)';
@@ -38,10 +53,10 @@ nt = size(x_true,2);
 %% Configuration
 % --- Model noise
 location_model_noise = (0.05)^2; % \sigma_w1^2
-heading_model_noise  = (0.1/180*pi)^2; %\sigma_w2^2
+heading_model_noise  = (0.5/180*pi)^2; %\sigma_w2^2
 
 % --- Observation (measurement) noise
-location_measure_noise = (1.5)^2; % \sigma_e1^2
+location_measure_noise = (0.9)^2; % \sigma_e1^2 0.6 0.7
 
 opt.Q = [location_model_noise 0 0;...
     0 location_model_noise 0;...
@@ -69,7 +84,8 @@ pf.particles       = zeros(nx, pf.Ns, nt);% initialize particles
 if (isMC==0)
     for k = 2:nt
         fprintf('Iteration = %d/%d\n',k,nt);
-        [xh(:,k), pf] = PF(k,y(:,k),[u v],pf, 'systematic_resampling',opt,0);
+        % --- Use PF for Missing Observation
+        [xh(:,k), pf] = PF_mo(k,y(:,k),[u v],pf, 'systematic_resampling',opt,0);
         % --- filtered observation
         yh(:,k) = Obs(xh(:,k),opt.M, 0);
     end
@@ -88,14 +104,15 @@ if (isMC==0)
         for i=2:nt
             plot([xh(1,i-1) xh(1,i)],[xh(2,i-1) xh(2,i)],'b--','LineWidth',2);
             plot([x_true(1,i-1) x_true(1,i)],[x_true(2,i-1) x_true(2,i)],'r','LineWidth',2);
-            plot(y(1,i),y(2,i),'gs');
-            
+            if obs_index(i)==1
+                plot(y(1,i),y(2,i),'gs');
+            end
             if (i==snap_shot)
                 h2 = figure('name','snapshot');
                 hold on
                 plot(xh(1,1:i),xh(2,1:i),'b--','LineWidth',2);
                 plot(x_true(1,1:i), x_true(2,1:i),'r','LineWidth',2);
-                plot(y(1,1:i),y(2,1:i),'gs');
+                %plot(y(1,1:i),y(2,1:i),'gs');
                 
                 col_min = min(pf.w(:,i));
                 col_max = max(pf.w(:,i));
@@ -139,6 +156,7 @@ if (isMC==0)
             delete(child(1));
         end
         stopWatch = toc;
+        fprintf('Ellapsed time: %f',stopWatch/60);
         hold off
         
         close(vid);
@@ -153,14 +171,14 @@ if (isMC==0)
     %    data1.y_test)));
     fprintf('RMSE of LASSO: %f\n',sqrt(mseCal(data1.y_guess_test,...
         data1.y_test)));
-    fprintf('RMSE of LASSO+PF: %f\n',sqrt(mseCal(data1.y_test,xh(1:2,:)')));
+    fprintf('RMSE of LASSO+PF: %f\n',sqrt(mseCal(data1.y,xh(1:2,:)')));
 else
     MC_run = 800;
     for i=1:MC_run
         fprintf('MC progress... %.2f%%\n',round(i/MC_run*100));
         pf_temp = pf;
         for k = 2:nt
-            [xh_temp(:,k), pf_temp] = PF(k,y(:,k),[u v],pf_temp, 'systematic_resampling',opt,0);
+            [xh_temp(:,k), pf_temp] = PF_mo(k,y(:,k),[u v],pf_temp, 'systematic_resampling',opt,0);
             % --- filtered observation
             %yh(:,k) = Obs(xh(:,k),opt.M, 0);
         end
